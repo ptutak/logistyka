@@ -13,15 +13,20 @@ from tkinter import ttk
 def addTask(event=None):
     pass
 
+
 class FuncButtons(tk.Frame):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
+        self.loadFileName=tk.StringVar()
+        self.loadFileEntry=tk.Entry(self,textvariable=self.loadFileName)
+        self.loadFileEntry.grid(row=0,column=0)
+        self.loadFileName.set('File Name')
         self.loadFileBtn=tk.Button(self,text="Load File")
-        self.loadFileBtn.grid(row=0, column=0)
+        self.loadFileBtn.grid(row=1, column=0)
         self.calculateBtn=tk.Button(self,text="Calculate")
-        self.calculateBtn.grid(row=1,column=0)
+        self.calculateBtn.grid(row=2,column=0)
         self.exitBtn=tk.Button(self,text="Exit")
-        self.exitBtn.grid(row=2,column=0)
+        self.exitBtn.grid(row=3,column=0)
 
 class AddTask(tk.Frame):
     def __init__(self,*args,**kwargs):
@@ -65,7 +70,7 @@ class AddTask(tk.Frame):
         self.taskCostNorm.set('Task Cost Norm')
         self.taskCostBoard.set('Task Cost Board')
         self.taskDesc.set('Task Description')
-        
+
 
 class Log(tk.Frame):
     def __init__(self,*args,**kwargs):
