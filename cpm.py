@@ -45,7 +45,7 @@ class FuncButtons(tk.Frame):
                     except:
                         print('Wrong data')
                     else:
-                        self.log.insert(0,tuple(data))
+                        self.log.insert(tk.END,tuple(data))
 
 class AddTask(tk.Frame):
     def __init__(self,*args,log,**kwargs):
@@ -96,11 +96,15 @@ class AddTask(tk.Frame):
         try:
             task.append(self.taskName.get())
             task.append(self.taskCont.get())
+            task[-1]=tuple(x.strip() for x in task[-1].strip().split('-'))
+            if len(task[-1])!=2:
+                raise ValueError
+            task[-1]=(task[-1][0],'-',task[-1][1])
             task.append(self.taskTimeNorm.get())
             task.append(self.taskTimeBoard.get())
             task.append(self.taskCostNorm.get())
             task.append(self.taskCostBoard.get())
-        except tk._tkinter.TclError:
+        except:
             print('Wrong data format')
             return []
         else:
