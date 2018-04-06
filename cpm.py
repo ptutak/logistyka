@@ -21,8 +21,10 @@ class FuncButtons(tk.Frame):
         self.loadFileBtn.bind('<Button-1>',self.loadFileAction)
         self.calculateBtn=tk.Button(self,text="Calculate")
         self.calculateBtn.grid(row=2,column=0)
+        self.calculateBtn.bind('<Button-1>',self.calculateBtnAction)
         self.exitBtn=tk.Button(self,text="Exit")
         self.exitBtn.grid(row=3,column=0)
+        self.exitBtn.bind('<Button-1>',self.exitBtnAction)
     def loadFileAction(self,event):
         file=self.loadFileName.get()
         if file!='':
@@ -45,7 +47,44 @@ class FuncButtons(tk.Frame):
                     except:
                         print('Wrong data')
                     else:
+                        if data[2]-data[3]!=0:
+                            data.append((data[5]-data[4])/(data[2]-data[3]))
+                        else:
+                            data.append(0)
                         self.log.insert(tk.END,tuple(data))
+    def exitBtnAction(self,event):
+        root.destroy()
+    def getCriticalPaths(self,tasks,tasksGraph,start,stop):
+        while True:
+            
+    def calculateBtnAction(self,event):
+        tasks=self.log.getTasks()
+        tasksGraph={}
+        for task in tasks:
+            if task[1][0] not in tasksGraph:
+                tasksGraph[task[1][0]]=[]
+                tasksGraph[task[1][0]].append(task[1][2])
+            else:
+                tasksGraph[task[1][0]].append(task[1][2])
+        start=[]
+        stop=[]
+        tasksValues=list()
+        for x in tasksGraph.values():
+            tasksValues.extend(x)
+        tasksValues=set(tasksValues)
+        for x in tasksGraph.keys():
+            if x not in tasksValues:
+                start.append(x)
+        for x in tasksValues:
+            if x not in set(tasksGraph.keys()):
+                stop.append(x)
+        if len(start)!=len(stop)!=1:
+            print("Error, many start and stops in graph")
+        else:
+            start=start[0]
+            stop=stop[0]
+            paths=self.getCriticalPaths(tasks,tasksGraph,start,stop)
+
 
 class AddTask(tk.Frame):
     def __init__(self,*args,log,**kwargs):
@@ -104,6 +143,10 @@ class AddTask(tk.Frame):
             task.append(self.taskTimeBoard.get())
             task.append(self.taskCostNorm.get())
             task.append(self.taskCostBoard.get())
+            if task[2]-task[3]!=0:
+                task.append((task[5]-task[4])/(task[2]-task[3]))
+            else:
+                task.append(0)
         except:
             print('Wrong data format')
             return []
@@ -116,7 +159,7 @@ class AddTask(tk.Frame):
     def insertBtnAction(self,event):
         task=self.getTaskData()
         if task!=[]:
-            curSelect=self.log.curselection()
+            curSelect=self.log.curSelection()
             if curSelect!=():
                 self.log.insert(curSelect[0],tuple(task))
     def addLastBtnAction(self,event):
@@ -135,10 +178,17 @@ class Log(tk.Frame):
         self.yScroll['command'] = self.taskListBox.yview
         self.grid_columnconfigure(0,weight=1)
         self.grid_rowconfigure(0,weight=1)
+        self.tasks=[]
     def insert(self,index,task):
+        if index=='end':
+            self.tasks.append(task)
+        else:
+            self.tasks.insert(index,task)
         self.taskListBox.insert(index,tuple(task))
-    def curselection(self):
+    def curSelection(self):
         return self.taskListBox.curselection()
+    def getTasks(self):
+        return self.tasks
 
 if __name__=='__main__':
     root = tk.Tk()
