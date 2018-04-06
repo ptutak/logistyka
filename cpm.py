@@ -7,6 +7,7 @@ Created on Thu Mar 29 14:30:14 2018
 """
 import tkinter as tk
 from tkinter import ttk
+from operator import itemgetter
 
 class FuncButtons(tk.Frame):
     def __init__(self,*args,log,**kwargs):
@@ -54,11 +55,35 @@ class FuncButtons(tk.Frame):
                         self.log.insert(tk.END,tuple(data))
     def exitBtnAction(self,event):
         root.destroy()
-    def getCriticalPaths(self,tasks,tasksGraph,start,stop):
-        while True:
-            
-    def calculateBtnAction(self,event):
-        tasks=self.log.getTasks()
+    def getCriticalPaths(self,tasksEdges,tasksGraph,start,stop):
+        Q=list()
+        Q.extend(tasksGraph.keys())
+        Q.append(stop)
+        Q=set(Q)
+        S=set()
+        d=dict(zip(Q,[float('Inf') for i in range(len(Q))]))
+        d[start]=0
+        p=dict(zip(Q,[None for i in range(len(Q))]))
+        while Q:
+            u=list(Q).pop(0)
+            for x in list(Q):
+                if d[x]<d[u]:
+                    u=x
+            Q.remove(u)
+            S.add(u)
+            for w in tasksGraph[u]:
+                if w in Q:
+                    if d[w]>d[u]+tasksEdges[(u,w)]:
+                        d[w]=d[u]+tasksEdges[(u,w)]
+                        p[w]=u
+            print(d,p,Q,S)
+        
+    def getTaskEdges(self,tasks):
+        tasksEdges={}
+        for task in tasks:
+            tasksEdges[(task[1][0],task[1][2])]=task[2]
+        return tasksEdges
+    def getTaskGraph(self,tasks):
         tasksGraph={}
         for task in tasks:
             if task[1][0] not in tasksGraph:
@@ -66,25 +91,32 @@ class FuncButtons(tk.Frame):
                 tasksGraph[task[1][0]].append(task[1][2])
             else:
                 tasksGraph[task[1][0]].append(task[1][2])
-        start=[]
-        stop=[]
         tasksValues=list()
         for x in tasksGraph.values():
             tasksValues.extend(x)
         tasksValues=set(tasksValues)
+        starts=[]
+        stops=[]
         for x in tasksGraph.keys():
             if x not in tasksValues:
-                start.append(x)
+                starts.append(x)
         for x in tasksValues:
             if x not in set(tasksGraph.keys()):
-                stop.append(x)
-        if len(start)!=len(stop)!=1:
+                stops.append(x)
+        for x in stops:
+            tasksGraph[x]=[]
+        return (tasksGraph,starts,stops)
+    def calculateBtnAction(self,event):
+        tasks=self.log.getTasks()
+        
+        tasksGraph,starts,stops=self.getTaskGraph(tasks)
+
+        if len(starts)!=len(stops)!=1:
             print("Error, many start and stops in graph")
         else:
-            start=start[0]
-            stop=stop[0]
-            paths=self.getCriticalPaths(tasks,tasksGraph,start,stop)
-
+            start=starts[0]
+            stop=stops[0]
+            paths=self.getCriticalPaths(self.getTaskEdges(tasks),tasksGraph,start,stop)
 
 class AddTask(tk.Frame):
     def __init__(self,*args,log,**kwargs):
