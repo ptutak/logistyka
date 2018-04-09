@@ -148,20 +148,25 @@ class FuncButtons(tk.Frame):
         for path in toCutPaths:
             if path==[]:
                 return []
-        
-        chosenTasks=[[-1,None] for i in range(len(toCutPaths))]
-        chosenPath=0
+        chosenIndexes=[-1 for i in range(len(toCutPaths))]
+        chosenTasks=[None for i in range(len(toCutPaths))]
         while True:
-            chosenTasks[chosenPath][0]+=1
-            chosenTasks[chosenPath][1]=toCutPaths[0][chosenTasks[chosenPath][0]]
-            for i in range(len(chosenTasks)):
-                if chosenTasks[i][0]==len(chosenTasks[i][0]):
-                    if i+1==len(chosenTasks):
-                        break;
-                    chosenTasks[i+1][0]+=1
-                    chosenTasks[i][0]=0
-                
-            
+            chosenIndexes[0]+=1
+            for i in range(len(toCutPaths)):
+                chosenTasks[i]=None
+            for i in range(len(toCutPaths)):
+                if not chosenTasks[i]:
+                    overflow=False
+                    if chosenIndexes[i]==len(toCutPaths[i]):
+                        chosenIndexes[i]=0
+                        overflow=True
+                    chosenTasks[i]=chosenIndexes[i]
+                    for j in range(i+1,len(toCutPaths)):
+                        if chosenTasks[i] in toCutPaths[j]:
+                            chosenTasks[j]=chosenTasks[i]
+                    if overflow and i+1<len(toCutPaths) and chosenTasks[i+1]==None:
+                        chosenIndexes[i+1]+=1
+            break;
         print(toCutPaths)
     def calculateBtnAction(self,event):
         tasks=self.log.getTasks()
