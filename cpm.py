@@ -9,9 +9,10 @@ import tkinter as tk
 from tkinter import ttk
 
 class FuncButtons(tk.Frame):
-    def __init__(self,*args,log,**kwargs):
+    def __init__(self,*args,log,countlog,**kwargs):
         super().__init__(*args,**kwargs)
         self.log=log
+        self.countLog=countlog
         self.loadFileName=tk.StringVar()
         self.loadFileEntry=tk.Entry(self,textvariable=self.loadFileName)
         self.loadFileEntry.grid(row=0,column=0)
@@ -114,8 +115,8 @@ class FuncButtons(tk.Frame):
                     p[w]=[u]
                 elif d[w]==d[u]+tasksEdges[(u,w)]:
                     p[w].append(u)
-        print(self.dfsPaths(p,start,stop))
-    def getTaskEdges(self,tasks,index=2):
+        return self.dfsPaths(p,start,stop)
+    def getTaskEdges(self,tasks,index):
         tasksEdges={}
         for task in tasks:
             tasksEdges[(task[1][0],task[1][2])]=task[index]
@@ -149,9 +150,34 @@ class FuncButtons(tk.Frame):
         if len(starts)!=len(stops)!=1:
             print("Error, many start and stops in graph")
         else:
-            start=starts[0]
-            stop=stops[0]
-            self.getCriticalPaths(self.getTaskEdges(tasks),tasksGraph,start,stop)
+            while True:
+                tasks=self.log.getTasks()
+                start=starts[0]
+                stop=stops[0]
+                taskTimes=self.getTaskEdges(tasks,2)
+                taskCritTimes=self.getTaskEdges(tasks,3)
+                critPaths=self.getCriticalPaths(taskTimes,tasksGraph,start,stop)
+                taskCosts=self.getTaskEdges(tasks,6)
+                for i in range(len(critPaths)):
+                    critPaths[i]=sorted(critPaths[i],key=lambda k:taskCosts[k])
+                costMin=max(taskCosts.values())
+                mPath=None
+                for path in critPaths:
+                    for x in path:
+                        if taskCosts[x]<costMin and taskTimes[x]!=taskCritTimes[x]:
+                            costMin=taskCosts[x]
+                            mPath=x
+                if mPath:
+                    for i in range(len(tasks)):
+                        if tasks[i][1][0]==mPath[0] and tasks[i][1][2]==mPath[1]:
+                            newTask=list(tasks[i])
+                            newTask[2]=newTask[2]-1.0
+                            newTask[4]+=newTask[6]
+                            tasks[i]=tuple(newTask)
+                    self.countLog.clearTasks()
+                    self.countLog.putTasks(tasks)
+                else:
+                    break;
 
 class AddTask(tk.Frame):
     def __init__(self,*args,log,**kwargs):
@@ -252,6 +278,10 @@ class Log(tk.Frame):
         else:
             self.tasks.insert(index,task)
         self.taskListBox.insert(index,tuple(task))
+    def putTasks(self,tasks):
+        self.tasks=tasks
+        for task in tasks:
+            self.taskListBox.insert(tk.END,tuple(task))
     def curSelection(self):
         return self.taskListBox.curselection()
     def getTasks(self):
@@ -264,8 +294,10 @@ if __name__=='__main__':
     root = tk.Tk()
     log=Log(root)
     log.grid(row=0,column=0,sticky=tk.N+tk.W+tk.S+tk.E)
-    AddTask(root,log=log).grid(row=1,column=0)
-    fButtons=FuncButtons(root,log=log)
+    countLog=Log(root)
+    countLog.grid(row=1,column=0,sticky=tk.N+tk.W+tk.S+tk.E)
+    AddTask(root,log=log).grid(row=2,column=0)
+    fButtons=FuncButtons(root,log=log,countlog=countLog)
     fButtons.grid(row=0,column=1,columnspan=2,sticky=tk.N+tk.W+tk.S+tk.E)
     root.grid_columnconfigure(0,weight=1)
     root.grid_rowconfigure(0,weight=1)
