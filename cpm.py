@@ -7,7 +7,6 @@ Created on Thu Mar 29 14:30:14 2018
 """
 import tkinter as tk
 from tkinter import ttk
-from operator import itemgetter
 
 class FuncButtons(tk.Frame):
     def __init__(self,*args,log,**kwargs):
@@ -24,8 +23,13 @@ class FuncButtons(tk.Frame):
         self.calculateBtn.grid(row=2,column=0)
         self.calculateBtn.bind('<Button-1>',self.calculateBtnAction)
         self.exitBtn=tk.Button(self,text="Exit")
-        self.exitBtn.grid(row=3,column=0)
+        self.exitBtn.grid(row=4,column=0)
         self.exitBtn.bind('<Button-1>',self.exitBtnAction)
+        self.clearBtn=tk.Button(self,text="Clear")
+        self.clearBtn.grid(row=3,column=0)
+        self.clearBtn.bind('<Button-1>',self.clearBtnAction)
+    def clearBtnAction(self,event):
+        self.log.clearTasks()
     def loadFileAction(self,event):
         file=self.loadFileName.get()
         if file!='':
@@ -55,14 +59,11 @@ class FuncButtons(tk.Frame):
                         self.log.insert(tk.END,tuple(data))
     def exitBtnAction(self,event):
         root.destroy()
-    def getCriticalPaths(self,tasksEdges,tasksGraph,start,stop):
-        Q=list()
-        Q.extend(tasksGraph.keys())
-        Q.append(stop)
+    def getShortestPaths(self,tasksEdges,tasksGraph,start,stop):
+        Q=list(tasksGraph.keys())
         Q=set(Q)
-        S=set()
         d=dict(zip(Q,[float('Inf') for i in range(len(Q))]))
-        d[start]=0
+        d[start]=0.0
         p=dict(zip(Q,[None for i in range(len(Q))]))
         while Q:
             u=list(Q).pop(0)
@@ -70,18 +71,54 @@ class FuncButtons(tk.Frame):
                 if d[x]<d[u]:
                     u=x
             Q.remove(u)
-            S.add(u)
             for w in tasksGraph[u]:
                 if w in Q:
                     if d[w]>d[u]+tasksEdges[(u,w)]:
                         d[w]=d[u]+tasksEdges[(u,w)]
-                        p[w]=u
-            print(d,p,Q,S)
-        
-    def getTaskEdges(self,tasks):
+                        p[w]=[u]
+                    elif d[w]==d[u]+tasksEdges[(u,w)]:
+                        p[w].append(u)
+        print(p)
+    def dfsNode(self,node,p,path,start,paths):
+        if node==start:
+            paths.append(list(reversed(path)))
+            return
+        for x in p[node]:
+            nexPath=list(path)
+            nexPath.append((x,node))
+            self.dfsNode(x,p,nexPath,start,paths)
+    def dfsPaths(self,p,start,stop):
+        paths=[]
+        for x in p[stop]:
+            nexPath=list()
+            nexPath.append((x,stop))
+            self.dfsNode(x,p,nexPath,start,paths)
+        return paths
+    def getCriticalPaths(self,tasksEdges,tasksGraph,start,stop):
+        for k,v in tasksEdges.items():
+            tasksEdges[k]=-v
+        Q=list(tasksGraph.keys())
+        Q=set(Q)
+        d=dict(zip(Q,[float('Inf') for i in range(len(Q))]))
+        d[start]=0.0
+        p=dict(zip(Q,[None for i in range(len(Q))]))
+        while Q:
+            u=list(Q).pop(0)
+            for x in list(Q):
+                if d[x]<d[u]:
+                    u=x
+            Q.remove(u)
+            for w in tasksGraph[u]:
+                if d[w]>d[u]+tasksEdges[(u,w)]:
+                    d[w]=d[u]+tasksEdges[(u,w)]
+                    p[w]=[u]
+                elif d[w]==d[u]+tasksEdges[(u,w)]:
+                    p[w].append(u)
+        print(self.dfsPaths(p,start,stop))
+    def getTaskEdges(self,tasks,index=2):
         tasksEdges={}
         for task in tasks:
-            tasksEdges[(task[1][0],task[1][2])]=task[2]
+            tasksEdges[(task[1][0],task[1][2])]=task[index]
         return tasksEdges
     def getTaskGraph(self,tasks):
         tasksGraph={}
@@ -108,15 +145,13 @@ class FuncButtons(tk.Frame):
         return (tasksGraph,starts,stops)
     def calculateBtnAction(self,event):
         tasks=self.log.getTasks()
-        
         tasksGraph,starts,stops=self.getTaskGraph(tasks)
-
         if len(starts)!=len(stops)!=1:
             print("Error, many start and stops in graph")
         else:
             start=starts[0]
             stop=stops[0]
-            paths=self.getCriticalPaths(self.getTaskEdges(tasks),tasksGraph,start,stop)
+            self.getCriticalPaths(self.getTaskEdges(tasks),tasksGraph,start,stop)
 
 class AddTask(tk.Frame):
     def __init__(self,*args,log,**kwargs):
@@ -205,7 +240,7 @@ class Log(tk.Frame):
         self.yScroll = tk.Scrollbar(self, orient=tk.VERTICAL)
         self.yScroll.grid(row=0, column=1,rowspan=5, sticky=tk.N+tk.S)
         self.taskList=tk.StringVar()
-        self.taskListBox=tk.Listbox(self,yscrollcommand=self.yScroll.set)
+        self.taskListBox=tk.Listbox(self,yscrollcommand=self.yScroll.set,listvariable=self.taskList)
         self.taskListBox.grid(row=0,column=0,rowspan=5,sticky=tk.N+tk.S+tk.W+tk.E)
         self.yScroll['command'] = self.taskListBox.yview
         self.grid_columnconfigure(0,weight=1)
@@ -221,6 +256,9 @@ class Log(tk.Frame):
         return self.taskListBox.curselection()
     def getTasks(self):
         return self.tasks
+    def clearTasks(self):
+        self.tasks=[]
+        self.taskList.set('')
 
 if __name__=='__main__':
     root = tk.Tk()
