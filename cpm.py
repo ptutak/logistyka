@@ -144,6 +144,25 @@ class FuncButtons(tk.Frame):
         for x in stops:
             tasksGraph[x]=[]
         return (tasksGraph,starts,stops)
+    def calculateToCutPaths(self,toCutPaths,tasks,taskCosts):
+        for path in toCutPaths:
+            if path==[]:
+                return []
+        
+        chosenTasks=[[-1,None] for i in range(len(toCutPaths))]
+        chosenPath=0
+        while True:
+            chosenTasks[chosenPath][0]+=1
+            chosenTasks[chosenPath][1]=toCutPaths[0][chosenTasks[chosenPath][0]]
+            for i in range(len(chosenTasks)):
+                if chosenTasks[i][0]==len(chosenTasks[i][0]):
+                    if i+1==len(chosenTasks):
+                        break;
+                    chosenTasks[i+1][0]+=1
+                    chosenTasks[i][0]=0
+                
+            
+        print(toCutPaths)
     def calculateBtnAction(self,event):
         tasks=self.log.getTasks()
         tasksGraph,starts,stops=self.getTaskGraph(tasks)
@@ -151,34 +170,29 @@ class FuncButtons(tk.Frame):
             print("Error, many start and stops in graph")
         else:
             while True:
-                tasks=self.log.getTasks()
                 start=starts[0]
                 stop=stops[0]
                 taskTimes=self.getTaskEdges(tasks,2)
                 taskCritTimes=self.getTaskEdges(tasks,3)
-                critPaths=self.getCriticalPaths(taskTimes,tasksGraph,start,stop)
+                critPaths=self.getCriticalPaths(dict(taskTimes),tasksGraph,start,stop)
+                print(critPaths)
                 taskCosts=self.getTaskEdges(tasks,6)
                 for i in range(len(critPaths)):
                     critPaths[i]=sorted(critPaths[i],key=lambda k:taskCosts[k])
-                costMin=max(taskCosts.values())
-                mPath=None
+                #costMin=max(taskCosts.values())
+                toCutPaths=list()
                 for path in critPaths:
+                    toCutPath=[]
                     for x in path:
-                        if taskCosts[x]<costMin and taskTimes[x]!=taskCritTimes[x]:
-                            costMin=taskCosts[x]
-                            mPath=x
-                if mPath:
-                    for i in range(len(tasks)):
-                        if tasks[i][1][0]==mPath[0] and tasks[i][1][2]==mPath[1]:
-                            newTask=list(tasks[i])
-                            newTask[2]=newTask[2]-1.0
-                            newTask[4]+=newTask[6]
-                            tasks[i]=tuple(newTask)
-                    self.countLog.clearTasks()
-                    self.countLog.putTasks(tasks)
-                else:
-                    break;
-
+                        if taskTimes[x]>taskCritTimes[x]:
+                            toCutPath.append(x)
+                    if toCutPath:
+                        toCutPaths.append(toCutPath)
+                self.calculateToCutPaths(toCutPaths,tasks,taskCosts)
+                mPath=False
+                
+            self.countLog.clearTasks()
+            self.countLog.putTasks(tasks)
 class AddTask(tk.Frame):
     def __init__(self,*args,log,**kwargs):
         super().__init__(*args,**kwargs)
