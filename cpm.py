@@ -144,13 +144,16 @@ class FuncButtons(tk.Frame):
         for x in stops:
             tasksGraph[x]=[]
         return (tasksGraph,starts,stops)
-    def calculateToCutPaths(self,toCutPaths,tasks,taskCosts):
+    def calculateToCutPaths(self,toCutPaths,taskCosts):
         for path in toCutPaths:
             if path==[]:
                 return []
-        chosenIndexes=[-1 for i in range(len(toCutPaths))]
+        chosenIndexes=[0 for i in range(len(toCutPaths))]
         chosenTasks=[None for i in range(len(toCutPaths))]
-        while True:
+        chosenIndexes[0]=-1
+        run=True
+        reduction=[]
+        while run:
             chosenIndexes[0]+=1
             for i in range(len(toCutPaths)):
                 chosenTasks[i]=None
@@ -160,14 +163,21 @@ class FuncButtons(tk.Frame):
                     if chosenIndexes[i]==len(toCutPaths[i]):
                         chosenIndexes[i]=0
                         overflow=True
-                    chosenTasks[i]=chosenIndexes[i]
+                    chosenTasks[i]=toCutPaths[i][chosenIndexes[i]]
                     for j in range(i+1,len(toCutPaths)):
                         if chosenTasks[i] in toCutPaths[j]:
                             chosenTasks[j]=chosenTasks[i]
                     if overflow and i+1<len(toCutPaths) and chosenTasks[i+1]==None:
                         chosenIndexes[i+1]+=1
-            break;
-        print(toCutPaths)
+                    elif overflow and i+1==len(toCutPaths):
+                        run=False
+                        break
+            cost=0
+            for task in chosenTasks:
+                print(task)
+                cost+=taskCosts[task]
+            reduction.append((cost,tuple(chosenTasks)))
+        print(reduction)
     def calculateBtnAction(self,event):
         tasks=self.log.getTasks()
         tasksGraph,starts,stops=self.getTaskGraph(tasks)
@@ -193,9 +203,8 @@ class FuncButtons(tk.Frame):
                             toCutPath.append(x)
                     if toCutPath:
                         toCutPaths.append(toCutPath)
-                self.calculateToCutPaths(toCutPaths,tasks,taskCosts)
-                mPath=False
-                
+                self.calculateToCutPaths(toCutPaths,taskCosts)
+                break
             self.countLog.clearTasks()
             self.countLog.putTasks(tasks)
 class AddTask(tk.Frame):
