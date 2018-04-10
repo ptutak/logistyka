@@ -31,6 +31,7 @@ class FuncButtons(tk.Frame):
         self.clearBtn.bind('<Button-1>',self.clearBtnAction)
     def clearBtnAction(self,event):
         self.log.clearTasks()
+        self.countLog.clearTasks()
     def loadFileAction(self,event):
         file=self.loadFileName.get()
         if file!='':
@@ -57,29 +58,9 @@ class FuncButtons(tk.Frame):
                             data.append((data[5]-data[4])/(data[2]-data[3]))
                         else:
                             data.append(0)
-                        self.log.insert(tk.END,tuple(data))
+                        self.log.insertTask(tk.END,tuple(data))
     def exitBtnAction(self,event):
         root.destroy()
-    def getShortestPaths(self,tasksEdges,tasksGraph,start,stop):
-        Q=list(tasksGraph.keys())
-        Q=set(Q)
-        d=dict(zip(Q,[float('Inf') for i in range(len(Q))]))
-        d[start]=0.0
-        p=dict(zip(Q,[None for i in range(len(Q))]))
-        while Q:
-            u=list(Q).pop(0)
-            for x in list(Q):
-                if d[x]<d[u]:
-                    u=x
-            Q.remove(u)
-            for w in tasksGraph[u]:
-                if w in Q:
-                    if d[w]>d[u]+tasksEdges[(u,w)]:
-                        d[w]=d[u]+tasksEdges[(u,w)]
-                        p[w]=[u]
-                    elif d[w]==d[u]+tasksEdges[(u,w)]:
-                        p[w].append(u)
-        print(p)
     def dfsNode(self,node,p,path,start,paths):
         if node==start:
             paths.append(list(reversed(path)))
@@ -145,9 +126,6 @@ class FuncButtons(tk.Frame):
             tasksGraph[x]=[]
         return (tasksGraph,starts,stops)
     def calculateToCutPaths(self,toCutPaths,taskCosts):
-        for path in toCutPaths:
-            if path==[]:
-                return []
         chosenIndexes=[0 for i in range(len(toCutPaths))]
         chosenTasks=[None for i in range(len(toCutPaths))]
         chosenIndexes[0]=-1
@@ -155,11 +133,14 @@ class FuncButtons(tk.Frame):
         reduction=[]
         while run:
             chosenIndexes[0]+=1
+            overflow=False
             for i in range(len(toCutPaths)):
                 chosenTasks[i]=None
             for i in range(len(toCutPaths)):
                 if not chosenTasks[i]:
-                    overflow=False
+                    if overflow:
+                        chosenIndexes[i]+=1
+                        overflow=False
                     if chosenIndexes[i]==len(toCutPaths[i]):
                         chosenIndexes[i]=0
                         overflow=True
@@ -167,46 +148,75 @@ class FuncButtons(tk.Frame):
                     for j in range(i+1,len(toCutPaths)):
                         if chosenTasks[i] in toCutPaths[j]:
                             chosenTasks[j]=chosenTasks[i]
-                    if overflow and i+1<len(toCutPaths) and chosenTasks[i+1]==None:
-                        chosenIndexes[i+1]+=1
-                    elif overflow and i+1==len(toCutPaths):
+                    if overflow and i+1==len(toCutPaths):
                         run=False
                         break
+            if not run:
+                break;
             cost=0
             for task in chosenTasks:
-                print(task)
                 cost+=taskCosts[task]
             reduction.append((cost,tuple(chosenTasks)))
-        print(reduction)
+        reduction=sorted(reduction)
+        if len(reduction)>0:
+            return reduction[0]
+        return []
     def calculateBtnAction(self,event):
         tasks=self.log.getTasks()
         tasksGraph,starts,stops=self.getTaskGraph(tasks)
         if len(starts)!=len(stops)!=1:
             print("Error, many start and stops in graph")
         else:
+            start=starts[0]
+            stop=stops[0]
+            taskTimes=self.getTaskEdges(tasks,2)
+            critPaths=self.getCriticalPaths(dict(taskTimes),tasksGraph,start,stop)
+            self.log.insertText('Crit paths:')
+            for path in critPaths:
+                self.log.insertText(path)
+            cost=0
             while True:
                 start=starts[0]
                 stop=stops[0]
                 taskTimes=self.getTaskEdges(tasks,2)
-                taskCritTimes=self.getTaskEdges(tasks,3)
+                taskBoardTimes=self.getTaskEdges(tasks,3)
                 critPaths=self.getCriticalPaths(dict(taskTimes),tasksGraph,start,stop)
-                print(critPaths)
                 taskCosts=self.getTaskEdges(tasks,6)
                 for i in range(len(critPaths)):
                     critPaths[i]=sorted(critPaths[i],key=lambda k:taskCosts[k])
-                #costMin=max(taskCosts.values())
                 toCutPaths=list()
                 for path in critPaths:
                     toCutPath=[]
                     for x in path:
-                        if taskTimes[x]>taskCritTimes[x]:
+                        if taskTimes[x]>taskBoardTimes[x]:
                             toCutPath.append(x)
                     if toCutPath:
                         toCutPaths.append(toCutPath)
-                self.calculateToCutPaths(toCutPaths,taskCosts)
-                break
+                if len(toCutPaths)<len(critPaths):
+                    break;
+                if not toCutPaths:
+                    break;
+                toCutTasks=self.calculateToCutPaths(toCutPaths,taskCosts)
+                if not toCutTasks:
+                    break;
+                for i in range(len(tasks)):
+                    for task in toCutTasks[1]:
+                        if task[0]==tasks[i][1][0] and task[1]==tasks[i][1][2]:
+                            newTask=list(tasks[i])
+                            newTask[2]=newTask[2]-1.0
+                            newTask[4]=newTask[4]+taskCosts[task]
+                            cost+=taskCosts[task]
+                            tasks[i]=tuple(newTask)
             self.countLog.clearTasks()
             self.countLog.putTasks(tasks)
+            self.countLog.insertText('Total cost:')
+            self.countLog.insertText(cost)
+            
+            self.countLog.insertText('New crit paths:')
+            critPaths=self.getCriticalPaths(dict(taskTimes),tasksGraph,start,stop)
+            for path in critPaths:
+                self.countLog.insertText(path)
+            
 class AddTask(tk.Frame):
     def __init__(self,*args,log,**kwargs):
         super().__init__(*args,**kwargs)
@@ -276,17 +286,17 @@ class AddTask(tk.Frame):
     def addFirstBtnAction(self,event):
         task=self.getTaskData()
         if task!=[]:
-            self.log.insert(0,tuple(task))
+            self.log.insertTask(0,tuple(task))
     def insertBtnAction(self,event):
         task=self.getTaskData()
         if task!=[]:
             curSelect=self.log.curSelection()
             if curSelect!=():
-                self.log.insert(curSelect[0],tuple(task))
+                self.log.insertTask(curSelect[0],tuple(task))
     def addLastBtnAction(self,event):
         task=self.getTaskData()
         if task!=[]:
-            self.log.insert(tk.END,tuple(task))
+            self.log.insertTask(tk.END,tuple(task))
 
 class Log(tk.Frame):
     def __init__(self,*args,**kwargs):
@@ -300,12 +310,14 @@ class Log(tk.Frame):
         self.grid_columnconfigure(0,weight=1)
         self.grid_rowconfigure(0,weight=1)
         self.tasks=[]
-    def insert(self,index,task):
+    def insertText(self,text,index=tk.END):
+        self.taskListBox.insert(index,text)
+    def insertTask(self,index,task):
         if index=='end':
             self.tasks.append(task)
         else:
             self.tasks.insert(index,task)
-        self.taskListBox.insert(index,tuple(task))
+        self.taskListBox.insert(index,task)
     def putTasks(self,tasks):
         self.tasks=tasks
         for task in tasks:
@@ -329,4 +341,5 @@ if __name__=='__main__':
     fButtons.grid(row=0,column=1,columnspan=2,sticky=tk.N+tk.W+tk.S+tk.E)
     root.grid_columnconfigure(0,weight=1)
     root.grid_rowconfigure(0,weight=1)
+    root.grid_rowconfigure(1,weight=1)
     root.mainloop()
