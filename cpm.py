@@ -151,11 +151,11 @@ class FuncButtons(tk.Frame):
                     if overflow and i+1==len(toCutPaths):
                         run=False
                         break
-            if not run:
-                break;
             cost=0
             for task in chosenTasks:
                 cost+=taskCosts[task]
+            if (cost,tuple(chosenTasks)) in reduction:
+                break
             reduction.append((cost,tuple(chosenTasks)))
         reduction=sorted(reduction)
         if len(reduction)>0:
@@ -193,19 +193,25 @@ class FuncButtons(tk.Frame):
                     if toCutPath:
                         toCutPaths.append(toCutPath)
                 if len(toCutPaths)<len(critPaths):
-                    break;
+                    break
                 if not toCutPaths:
-                    break;
+                    break
                 toCutTasks=self.calculateToCutPaths(toCutPaths,taskCosts)
                 if not toCutTasks:
-                    break;
+                    break
+                toCutTasksSet=dict()
+                for task in toCutTasks[1]:
+                    if task in toCutTasksSet:
+                        toCutTasksSet[task]+=1
+                    else:
+                        toCutTasksSet[task]=1
                 for i in range(len(tasks)):
-                    for task in toCutTasks[1]:
+                    for task in toCutTasksSet.keys():
                         if task[0]==tasks[i][1][0] and task[1]==tasks[i][1][2]:
                             newTask=list(tasks[i])
                             newTask[2]=newTask[2]-1.0
                             newTask[4]=newTask[4]+taskCosts[task]
-                            cost+=taskCosts[task]
+                            cost+=toCutTasksSet[task]*taskCosts[task]
                             tasks[i]=tuple(newTask)
             self.countLog.clearTasks()
             self.countLog.putTasks(tasks)
