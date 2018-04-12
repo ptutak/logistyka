@@ -77,26 +77,43 @@ class FuncButtons(tk.Frame):
             self.dfsNode(x,p,nexPath,start,paths)
         return paths
     def getCriticalPaths(self,tasksEdges,tasksGraph,start,stop):
-        for k,v in tasksEdges.items():
-            tasksEdges[k]=-v
+        tasksEdgesOld=dict(tasksEdges)
         Q=list(tasksGraph.keys())
         Q=set(Q)
-        d=dict(zip(Q,[float('Inf') for i in range(len(Q))]))
-        d[start]=0.0
+        d=dict(zip(Q,[float('0') for i in range(len(Q))]))
+        d[start]=float('Inf')
         p=dict(zip(Q,[None for i in range(len(Q))]))
         while Q:
             u=list(Q).pop(0)
             for x in list(Q):
-                if d[x]<d[u]:
+                if d[x]>d[u]:
                     u=x
             Q.remove(u)
             for w in tasksGraph[u]:
-                if d[w]>d[u]+tasksEdges[(u,w)]:
+                if d[w]<d[u]+tasksEdges[(u,w)]:
                     d[w]=d[u]+tasksEdges[(u,w)]
                     p[w]=[u]
                 elif d[w]==d[u]+tasksEdges[(u,w)]:
                     p[w].append(u)
-        return self.dfsPaths(p,start,stop)
+        critPaths=self.dfsPaths(p,start,stop)
+        toRemove=[]
+        maxTime=0
+        for path in critPaths:
+            time=0
+            for task in path:
+                time+=tasksEdgesOld[task]
+            if time>maxTime:
+                maxTime=time
+        for path in critPaths:
+            time=0
+            for task in path:
+                time+=tasksEdgesOld[task]
+            if time<maxTime:
+                toRemove.append(path)
+        for path in toRemove:
+            critPaths.remove(path)
+
+        return critPaths
     def getTaskEdges(self,tasks,index):
         tasksEdges={}
         for task in tasks:
@@ -173,7 +190,12 @@ class FuncButtons(tk.Frame):
             critPaths=self.getCriticalPaths(dict(taskTimes),tasksGraph,start,stop)
             self.log.insertText('Crit paths:')
             for path in critPaths:
+                time=0
                 self.log.insertText(path)
+                for task in path:
+                    time+=taskTimes[task]
+                
+                self.log.insertText('time: {0}'.format(time))
             cost=0
             while True:
                 start=starts[0]
@@ -205,13 +227,14 @@ class FuncButtons(tk.Frame):
                         toCutTasksSet[task]+=1
                     else:
                         toCutTasksSet[task]=1
+                for k,v in toCutTasksSet.items():
+                    cost+=taskCosts[k]
                 for i in range(len(tasks)):
                     for task in toCutTasksSet.keys():
                         if task[0]==tasks[i][1][0] and task[1]==tasks[i][1][2]:
                             newTask=list(tasks[i])
                             newTask[2]=newTask[2]-1.0
                             newTask[4]=newTask[4]+taskCosts[task]
-                            cost+=toCutTasksSet[task]*taskCosts[task]
                             tasks[i]=tuple(newTask)
             self.countLog.clearTasks()
             self.countLog.putTasks(tasks)
@@ -221,7 +244,12 @@ class FuncButtons(tk.Frame):
             self.countLog.insertText('New crit paths:')
             critPaths=self.getCriticalPaths(dict(taskTimes),tasksGraph,start,stop)
             for path in critPaths:
+                time=0
+                for task in path:
+                    time+=taskTimes[task]
                 self.countLog.insertText(path)
+                
+                self.countLog.insertText('time: {0}'.format(time))
             
 class AddTask(tk.Frame):
     def __init__(self,*args,log,**kwargs):
