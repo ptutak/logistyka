@@ -77,42 +77,29 @@ class FuncButtons(tk.Frame):
             self.dfsNode(x,p,nexPath,start,paths)
         return paths
     def getCriticalPaths(self,tasksEdges,tasksGraph,start,stop):
-        tasksEdgesOld=dict(tasksEdges)
         Q=list(tasksGraph.keys())
         Q=set(Q)
-        d=dict(zip(Q,[float('0') for i in range(len(Q))]))
-        d[start]=float('Inf')
-        p=dict(zip(Q,[None for i in range(len(Q))]))
+        p=dict(zip(Q,[[] for i in range(len(Q))]))
         while Q:
-            u=list(Q).pop(0)
-            for x in list(Q):
-                if d[x]>d[u]:
-                    u=x
-            Q.remove(u)
+            u=Q.pop()
             for w in tasksGraph[u]:
-                if d[w]<d[u]+tasksEdges[(u,w)]:
-                    d[w]=d[u]+tasksEdges[(u,w)]
-                    p[w]=[u]
-                elif d[w]==d[u]+tasksEdges[(u,w)]:
-                    p[w].append(u)
+                p[w].append(u)
         critPaths=self.dfsPaths(p,start,stop)
         toRemove=[]
         maxTime=0
+        times=[]
         for path in critPaths:
             time=0
             for task in path:
-                time+=tasksEdgesOld[task]
+                time+=tasksEdges[task]
+            times.append(time)
             if time>maxTime:
                 maxTime=time
         for path in critPaths:
-            time=0
-            for task in path:
-                time+=tasksEdgesOld[task]
-            if time<maxTime:
+            if times[critPaths.index(path)]<maxTime:
                 toRemove.append(path)
         for path in toRemove:
             critPaths.remove(path)
-
         return critPaths
     def getTaskEdges(self,tasks,index):
         tasksEdges={}
