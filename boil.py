@@ -3,6 +3,7 @@
 import tkinter as tk
 from tkinter import ttk
 
+
 class Log(tk.Frame):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
@@ -42,8 +43,32 @@ class Log(tk.Frame):
         self.taskList.set('')
 
 
+class Table(tk.Frame):
+    def __init__(self, *args, rows, columns, strech=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.rows = rows
+        self.columns = columns
+        self.entries = {}
+        for i in range(rows):
+            for j in range(columns):
+                self.entries[(i,j)] = tk.StringVar()
+                entry = Entry(self, textvariable=self.entries[(i,j)])
+                entry.grid(row=i, column=j)
+        if strech:
+            for i in range(rows):
+                self.rowconfigure(i, weight=1)
+            for j in range(columns):
+                self.columnconfigure(j, weight=1)
+
+    def getCellValue(self, row, column):
+        return self.entries[(row, column)]
+
+    def setCellValue(self, row, column, value):
+        self.entries[(row, column)].set(value)
+
+
 class MenuButtons(tk.Frame):
-    def __init(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args,**kwargs)
         self.supplierNumber = tk.IntVar()
         self.receiverNumber = tk.IntVar()
@@ -60,7 +85,12 @@ class MenuButtons(tk.Frame):
         self.receiverNumber.set('Receiver Number')
     
     def updateTableBtnAction(self, event):
-        
+        rowNumber = self.supplierNumber.get()
+        columnNumber = self.receiverNumber.get()
+
+
+
+
 
 if __name__=='__main__':
     root = tk.Tk()
