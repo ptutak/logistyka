@@ -339,7 +339,7 @@ class Log(tk.Frame):
         else:
             self.tasks.insert(index,task)
         self.taskListBox.insert(index,task)
-    def putTasks(self,tasks):
+    def pushTasks(self,tasks):
         self.tasks=tasks
         for task in tasks:
             self.taskListBox.insert(tk.END,tuple(task))

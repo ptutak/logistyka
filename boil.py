@@ -1,4 +1,4 @@
-#!/bin/python3
+#!/usr/bin/python3
 
 import tkinter as tk
 from tkinter import ttk
@@ -44,16 +44,16 @@ class Log(tk.Frame):
 
 
 class Table(tk.Frame):
-    def __init__(self, *args, rows, columns, strech=False, **kwargs):
+    def __init__(self, *args, rows=4, columns=4, strech=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.rows = rows
         self.columns = columns
         self.entries = {}
         for i in range(rows):
             for j in range(columns):
-                self.entries[(i,j)] = tk.StringVar()
-                entry = Entry(self, textvariable=self.entries[(i,j)])
-                entry.grid(row=i, column=j)
+                self.entries[(i,j)] = tk.IntVar()
+                entry = tk.Entry(self, textvariable=self.entries[(i,j)])
+                entry.grid(row=i, column=j, sticky=tk.N+tk.W+tk.S+tk.E)
         if strech:
             for i in range(rows):
                 self.rowconfigure(i, weight=1)
@@ -65,28 +65,103 @@ class Table(tk.Frame):
 
     def setCellValue(self, row, column, value):
         self.entries[(row, column)].set(value)
+    
+    def getRows(self):
+        return self.rows
+
+    def getColumns(self):
+        return self.columns
+    
+    def getRowsSum(self):
+        rows = [0 for i in range(self.rows)]
+        for i in range(self.rows):
+            for j in range(self.columns):
+                rows[i]+=self.entries[(i,j)].get()
+        return rows
+    
+    def getColumnsSum(self):
+        columns = [0 for i in range(self.columns)]
+        for i in range(self.rows):
+            for j in range(self.columns):
+                columns[j]+=self.entries[(i,j)].get()
+        return columns
+
+    def getCellsSum(self):
+        sum = 0
+        for i in range(self.rows):
+            for j in range(self.columns):
+                sum += self.entries[(i,j)].get()
+        return sum
+
+    def addRow(self):
+        entryVals = {}
+        for k,v in self.entries.items():
+            entryVals[k] = v
+        self.rows += 1
+        for i in range(self.rows):
+            for j in range(self.columns):
+                self.entries[(i,j)] = tk.IntVar()
+                entry = tk.Entry(self, textvariable=self.entries[(i,j)])
+                entry.grid(row=i, column=j, sticky=tk.N+tk.W+tk.S+tk.E)
+                self.entries[(i,j)].set(0)
+
+    def updateTableSize(self, rows, columns, stretch=False):
+        for child in self.winfo_children():
+            child.destroy()
+        self.entries = {}
+        self.rows = rows
+        self.columns = columns
+        for i in range(rows):
+            for j in range(columns):
+                self.entries[(i,j)] = tk.IntVar()
+                entry = tk.Entry(self, textvariable=self.entries[(i,j)])
+                entry.grid(row=i, column=j, sticky=tk.N+tk.W+tk.S+tk.E)
+                self.entries[(i,j)].set(0)
+
+        if stretch:
+            for i in range(rows):
+                self.rowconfigure(i, weight=1)
+            for j in range(columns):
+                self.columnconfigure(j, weight=1)
 
 
 class MenuButtons(tk.Frame):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, table, suppliers, receivers, log, **kwargs):
         super().__init__(*args,**kwargs)
         self.supplierNumber = tk.IntVar()
         self.receiverNumber = tk.IntVar()
         self.supplierNumberEntry = tk.Entry(self, textvariable=self.supplierNumber)
-        self.supplierNumberEntry.grid(row=0, column=0)
+        self.supplierNumberEntry.grid(row=0, column=1)
+        self.supplierNumberLabel = tk.Label(self, text='Supplier number:')
         self.receiverNumberEntry = tk.Entry(self, textvariable=self.receiverNumber)
-        self.receiverNumberEntry.grid(row=0, column=1)
+        self.receiverNumberEntry.grid(row=1, column=1)
         self.updateTableBtn = tk.Button(self, text='Update Table')
-        self.updateTableBtn.grid(row=1, column=0, columnspan=2)
+        self.updateTableBtn.grid(row=2, column=0, columnspan=2)
         self.updateTableBtn.bind('<Button-1>', self.updateTableBtnAction)
+        self.calculateBtn = tk.Button(self, text='Calculate')
+        self.calculateBtn.grid(row=3, column=0, columnspan=2)
+        self.calculateBtn.bind('<Button-1>', self.calculateBtnAction)
         self.columnconfigure(0,weight=1)
         self.columnconfigure(1,weight=1)
-        self.supplierNumber.set('Suppliers Number')
-        self.receiverNumber.set('Receiver Number')
-    
+        self.supplierNumber.set(suppliers.getRows())
+        self.receiverNumber.set(receivers.getColumns())
+        self.table = table
+        self.suppliers = suppliers
+        self.receivers = receivers
+        self.log = log
     def updateTableBtnAction(self, event):
         rowNumber = self.supplierNumber.get()
         columnNumber = self.receiverNumber.get()
+        self.table.updateTableSize(rowNumber, columnNumber)
+        self.suppliers.updateTableSize(rowNumber,1)
+        self.receivers.updateTableSize(1,columnNumber)
+    def calculateInitValues(self):
+        supplierSum = self.suppliers.getCellsSum()
+        receiversSum = self.receivers.getCellsSum()
+        self.log.insertText('suppliers: {}'.format(supplierSum))
+        self.log.insertText('receivers: {}'.format(receiversSum))
+    def calculateBtnAction(self, event):
+        self.calculateInitValues()
 
 
 
@@ -94,10 +169,19 @@ class MenuButtons(tk.Frame):
 
 if __name__=='__main__':
     root = tk.Tk()
-    log=Log(root)
-    log.grid(row=1,column=0,sticky=tk.N+tk.W+tk.S+tk.E)
-    
-    root.grid_columnconfigure(0,weight=1)
-    root.grid_rowconfigure(0,weight=1)
-    root.grid_rowconfigure(1,weight=1)
+    log = Log(root)
+    initTable = Table(root)
+    initLabel = tk.Label(root, text='Dos\\Odb')
+    suppliers = Table(root, rows=4, columns=1)
+    receivers = Table(root, rows=1, columns=4)
+    buttons = MenuButtons(root, table=initTable, suppliers=suppliers, receivers=receivers, log=log)
+    initLabel.grid(row=0, column=0)
+    suppliers.grid(row=1, column=0, sticky=tk.N+tk.W+tk.S+tk.E)
+    receivers.grid(row=0, column=1, sticky=tk.N+tk.W+tk.S+tk.E)
+    initTable.grid(row=1, column=1, sticky=tk.N+tk.W+tk.S+tk.E)
+    log.grid(row=2, column=0, columnspan=2, sticky=tk.N+tk.W+tk.S+tk.E)
+    buttons.grid(row=0, column=2, rowspan=1, sticky=tk.N+tk.W+tk.S+tk.E)
+    root.grid_columnconfigure(0, weight=1)
+    root.grid_rowconfigure(0, weight=1)
+    root.grid_rowconfigure(1, weight=1)
     root.mainloop()
