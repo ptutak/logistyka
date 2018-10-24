@@ -3,7 +3,9 @@
 import tkinter as tk
 from tkinter import ttk
 from prettytable import PrettyTable
-
+import numpy as np
+import scipy.linalg as lg
+from time import sleep
 
 class Log(tk.Frame):
     def __init__(self, *args, **kwargs):
@@ -21,11 +23,13 @@ class Log(tk.Frame):
     def insertText(self, text, index=tk.END):
         self.logListBox.insert(index, text)
         self.logListBox.yview(tk.END)
+        self.update_idletasks()
 
     def pushArray(self, array):
         for line in array:
             self.logListBox.insert(tk.END, line)
         self.logListBox.yview(tk.END)
+        self.update_idletasks()
 
     def curSelection(self):
         return self.logListBox.curselection()
@@ -57,6 +61,9 @@ class Table(tk.Frame):
 
     def __setitem__(self, index, value):
         self.entries[index].set(value)
+
+    def getArray(self):
+        return [[self[(i, j)] for j in range(self.columns)] for i in range(self.rows)]
 
     def findMinValue(self):
         minV = self[(0, 0)]
@@ -101,7 +108,7 @@ class Table(tk.Frame):
                 sum += self.entries[(i, j)].get()
         return sum
 
-    def addRows(self, rowNum):
+    def addRows(self, rowNum, value=0):
         prevRowNum = self.rows
         self.rows += rowNum
         for i in range(prevRowNum, self.rows):
@@ -109,9 +116,9 @@ class Table(tk.Frame):
                 self.entries[(i, j)] = tk.IntVar()
                 entry = tk.Entry(self, textvariable=self.entries[(i, j)], width=self.entryWidth)
                 entry.grid(row=i, column=j, sticky=tk.N+tk.W+tk.S+tk.E)
-                self.entries[(i, j)].set(0)
+                self.entries[(i, j)].set(value)
 
-    def addColumns(self, columnNum):
+    def addColumns(self, columnNum, value=0):
         prevColumnNum = self.columns
         self.columns += columnNum
         for i in range(self.rows):
@@ -119,7 +126,7 @@ class Table(tk.Frame):
                 self.entries[(i, j)] = tk.IntVar()
                 entry = tk.Entry(self, textvariable=self.entries[(i, j)], width=self.entryWidth)
                 entry.grid(row=i, column=j, sticky=tk.N+tk.W+tk.S+tk.E)
-                self.entries[(i, j)].set(0)
+                self.entries[(i, j)].set(value)
 
     def updateTableSize(self, rows, columns, stretch=False):
         oldEntries = self.entries
@@ -171,7 +178,7 @@ class MenuButtons(tk.Frame):
         self.suppliers = suppliers
         self.receivers = receivers
         self.log = log
-        self.stepTable = None
+        self.quantArray = None
 
     def updateTableBtnAction(self, event):
         rowNumber = self.supplierNumber.get()
@@ -183,12 +190,43 @@ class MenuButtons(tk.Frame):
     def printArray(self, array=None):
         x = PrettyTable()
         if not array:
-            array = [[self.table[(i, j)] for j in range(self.table.getColumns())] for i in range(self.table.getRows())]
+            array = self.table.getArray()
         x.field_names = [' '] + ['O{}'.format(i) for i in range(self.table.getColumns())]
         for i, row in enumerate(array):
             x.add_row(['D{}'.format(i)] + row)
         for line in str(x).split('\n'):
             self.log.insertText('{}'.format(line))
+
+    def getMinValueArray(self, array=None):
+        if not array:
+            array = self.table.getArray()
+        minV = array[0][0]
+        minI = (0, 0)
+        for i in range(len(array)):
+            for j in range(len(array[0])):
+                if array[i][j] < minV:
+                    minV = array[i][j]
+                    minI = (i, j)
+        return (minI, minV)
+
+    def updateQuantArray(self, costArray):
+        recSumAct = np.sum(np.array(self.quantArray), axis=0)
+        supSumAct = np.sum(np.array(self.quantArray), axis=1)
+        recSum = np.array(self.table.getColumnsSum())
+        supSum = np.array(self.table.getRowsSum())
+        diffSup = supSum - supSumAct
+        diffRec = recSum - recSumAct
+        if any(diffSup):
+            minI, minV = self.getMinValueArray(costArray)
+            if diffSup[minI[0]] > diffRec[minI[1]]:
+                self.quantArray[minI[0]][minI[1]] += diffRec[minI[1]]
+                for i in range(len(supSum)):
+                    costArray[i][minI[1]] = 10000000000
+            else:
+                self.quantArray[minI[0]][minI[1]] += diffSup[minI[0]]
+                for i in range(len(recSum)):
+                    costArray[minI[0]][i] = 10000000000
+        return costArray
 
     def calculateInitValues(self):
         supplierSum = self.suppliers.getCellsSum()
@@ -212,12 +250,12 @@ class MenuButtons(tk.Frame):
         self.log.insertText('suppliers: {}'.format(suppliers))
         self.log.insertText('receivers: {}'.format(receivers))
 
-        array = [[0 for j in range(self.table.getColumns())] for i in range(self.table.getRows())]
-        minI, minV = self.table.findMinValue()
-
-        self.printArray()
-        self.printArray(array)
-
+        costArray = self.table.getArray()
+        self.quantArray = [[0 for j in range(self.table.getColumns())] for i in range(self.table.getRows())]
+        while not np.array_equal(np.sum(np.array(self.quantArray), axis=0), np.array(self.table.getColumns())):
+            costArray = self.updateQuantArray(costArray)
+            self.log.pushArray(self.quantArray)
+            sleep(1)
 
     def calculateStep(self):
         pass
@@ -225,6 +263,8 @@ class MenuButtons(tk.Frame):
     def calculateBtnAction(self, event):
         self.log.clear()
         self.calculateInitValues()
+        self.printArray()
+        self.printArray(self.quantArray)
 
 
 if __name__ == '__main__':
