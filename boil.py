@@ -5,8 +5,8 @@ from tkinter import ttk
 
 
 class Log(tk.Frame):
-    def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.yScroll = tk.Scrollbar(self, orient=tk.VERTICAL)
         self.yScroll.grid(row=0, column=1, rowspan=5, sticky=tk.N+tk.S)
         self.taskList = tk.StringVar()
@@ -21,16 +21,16 @@ class Log(tk.Frame):
         self.taskListBox.insert(index, text)
 
     def insertTask(self, index, task):
-        if index=='end':
+        if index == 'end':
             self.tasks.append(task)
         else:
             self.tasks.insert(index, task)
         self.taskListBox.insert(index, task)
 
     def putTasks(self, tasks):
-        self.tasks=tasks
+        self.tasks = tasks
         for task in tasks:
-            self.taskListBox.insert(tk.END,tuple(task))
+            self.taskListBox.insert(tk.END, tuple(task))
 
     def curSelection(self):
         return self.taskListBox.curselection()
@@ -39,7 +39,7 @@ class Log(tk.Frame):
         return self.tasks
 
     def clearTasks(self):
-        self.tasks=[]
+        self.tasks = []
         self.taskList.set('')
 
 
@@ -51,8 +51,8 @@ class Table(tk.Frame):
         self.entries = {}
         for i in range(rows):
             for j in range(columns):
-                self.entries[(i,j)] = tk.IntVar()
-                entry = tk.Entry(self, textvariable=self.entries[(i,j)])
+                self.entries[(i, j)] = tk.IntVar()
+                entry = tk.Entry(self, textvariable=self.entries[(i, j)])
                 entry.grid(row=i, column=j, sticky=tk.N+tk.W+tk.S+tk.E)
         if strech:
             for i in range(rows):
@@ -65,45 +65,45 @@ class Table(tk.Frame):
 
     def setCellValue(self, row, column, value):
         self.entries[(row, column)].set(value)
-    
+
     def getRows(self):
         return self.rows
 
     def getColumns(self):
         return self.columns
-    
+
     def getRowsSum(self):
         rows = [0 for i in range(self.rows)]
         for i in range(self.rows):
             for j in range(self.columns):
-                rows[i]+=self.entries[(i,j)].get()
+                rows[i] += self.entries[(i, j)].get()
         return rows
-    
+
     def getColumnsSum(self):
         columns = [0 for i in range(self.columns)]
         for i in range(self.rows):
             for j in range(self.columns):
-                columns[j]+=self.entries[(i,j)].get()
+                columns[j] += self.entries[(i, j)].get()
         return columns
 
     def getCellsSum(self):
         sum = 0
         for i in range(self.rows):
             for j in range(self.columns):
-                sum += self.entries[(i,j)].get()
+                sum += self.entries[(i, j)].get()
         return sum
 
     def addRow(self):
         entryVals = {}
-        for k,v in self.entries.items():
+        for k, v in self.entries.items():
             entryVals[k] = v
         self.rows += 1
         for i in range(self.rows):
             for j in range(self.columns):
-                self.entries[(i,j)] = tk.IntVar()
-                entry = tk.Entry(self, textvariable=self.entries[(i,j)])
+                self.entries[(i, j)] = tk.IntVar()
+                entry = tk.Entry(self, textvariable=self.entries[(i, j)])
                 entry.grid(row=i, column=j, sticky=tk.N+tk.W+tk.S+tk.E)
-                self.entries[(i,j)].set(0)
+                self.entries[(i, j)].set(0)
 
     def updateTableSize(self, rows, columns, stretch=False):
         for child in self.winfo_children():
@@ -113,11 +113,10 @@ class Table(tk.Frame):
         self.columns = columns
         for i in range(rows):
             for j in range(columns):
-                self.entries[(i,j)] = tk.IntVar()
-                entry = tk.Entry(self, textvariable=self.entries[(i,j)])
+                self.entries[(i, j)] = tk.IntVar()
+                entry = tk.Entry(self, textvariable=self.entries[(i, j)])
                 entry.grid(row=i, column=j, sticky=tk.N+tk.W+tk.S+tk.E)
-                self.entries[(i,j)].set(0)
-
+                self.entries[(i, j)].set(0)
         if stretch:
             for i in range(rows):
                 self.rowconfigure(i, weight=1)
@@ -127,7 +126,7 @@ class Table(tk.Frame):
 
 class MenuButtons(tk.Frame):
     def __init__(self, *args, table, suppliers, receivers, log, **kwargs):
-        super().__init__(*args,**kwargs)
+        super().__init__(*args, **kwargs)
         self.supplierNumber = tk.IntVar()
         self.receiverNumber = tk.IntVar()
         self.supplierNumberEntry = tk.Entry(self, textvariable=self.supplierNumber)
@@ -141,33 +140,33 @@ class MenuButtons(tk.Frame):
         self.calculateBtn = tk.Button(self, text='Calculate')
         self.calculateBtn.grid(row=3, column=0, columnspan=2)
         self.calculateBtn.bind('<Button-1>', self.calculateBtnAction)
-        self.columnconfigure(0,weight=1)
-        self.columnconfigure(1,weight=1)
+        self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
         self.supplierNumber.set(suppliers.getRows())
         self.receiverNumber.set(receivers.getColumns())
         self.table = table
         self.suppliers = suppliers
         self.receivers = receivers
         self.log = log
+
     def updateTableBtnAction(self, event):
         rowNumber = self.supplierNumber.get()
         columnNumber = self.receiverNumber.get()
         self.table.updateTableSize(rowNumber, columnNumber)
-        self.suppliers.updateTableSize(rowNumber,1)
-        self.receivers.updateTableSize(1,columnNumber)
+        self.suppliers.updateTableSize(rowNumber, 1)
+        self.receivers.updateTableSize(1, columnNumber)
+
     def calculateInitValues(self):
         supplierSum = self.suppliers.getCellsSum()
         receiversSum = self.receivers.getCellsSum()
         self.log.insertText('suppliers: {}'.format(supplierSum))
         self.log.insertText('receivers: {}'.format(receiversSum))
+
     def calculateBtnAction(self, event):
         self.calculateInitValues()
 
 
-
-
-
-if __name__=='__main__':
+if __name__ == '__main__':
     root = tk.Tk()
     log = Log(root)
     initTable = Table(root)
