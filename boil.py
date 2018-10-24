@@ -20,7 +20,7 @@ class Log(tk.Frame):
         self.grid_rowconfigure(0, weight=1)
         self.tasks = []
 
-    def insertText(self, text, index=tk.END):
+    def write(self, text, index=tk.END):
         self.logListBox.insert(index, text)
         self.logListBox.yview(tk.END)
         self.update_idletasks()
@@ -195,7 +195,7 @@ class MenuButtons(tk.Frame):
         for i, row in enumerate(array):
             x.add_row(['D{}'.format(i)] + row)
         for line in str(x).split('\n'):
-            self.log.insertText('{}'.format(line))
+            self.log.write('{}'.format(line))
 
     def getMinValueArray(self, array=None):
         if not array:
@@ -212,8 +212,8 @@ class MenuButtons(tk.Frame):
     def updateQuantArray(self, costArray):
         recSumAct = np.sum(np.array(self.quantArray), axis=0)
         supSumAct = np.sum(np.array(self.quantArray), axis=1)
-        recSum = np.array(self.table.getColumnsSum())
-        supSum = np.array(self.table.getRowsSum())
+        recSum = np.array(self.receivers.getColumnsSum())
+        supSum = np.array(self.suppliers.getRowsSum())
         diffSup = supSum - supSumAct
         diffRec = recSum - recSumAct
         if any(diffSup):
@@ -231,31 +231,29 @@ class MenuButtons(tk.Frame):
     def calculateInitValues(self):
         supplierSum = self.suppliers.getCellsSum()
         receiverSum = self.receivers.getCellsSum()
-        self.log.insertText('suppliers sum: {}'.format(supplierSum))
-        self.log.insertText('receivers sum: {}'.format(receiverSum))
+        self.log.write('suppliers sum: {}'.format(supplierSum))
+        self.log.write('receivers sum: {}'.format(receiverSum))
         if supplierSum > receiverSum:
-            self.log.insertText('suppliers > receivers - adding fictional receiver')
-            self.table.addColumns(1)
+            self.log.write('suppliers > receivers - adding fictional receiver')
+            self.table.addColumns(1, 100000)
             self.receivers.addColumns(1)
             self.receivers[(0, self.receivers.getColumns()-1)] = supplierSum - receiverSum
         elif receiverSum > supplierSum:
-            self.log.insertText('receivers > suppliers - adding fictional supplier')
-            self.table.addRows(1)
+            self.log.write('receivers > suppliers - adding fictional supplier')
+            self.table.addRows(1, 100000)
             self.suppliers.addRows(1)
             self.suppliers[(self.suppliers.getRows()-1, 0)] = receiverSum - supplierSum
 
         suppliers = self.suppliers.getRowsSum()
         receivers = self.receivers.getColumnsSum()
 
-        self.log.insertText('suppliers: {}'.format(suppliers))
-        self.log.insertText('receivers: {}'.format(receivers))
+        self.log.write('suppliers: {}'.format(suppliers))
+        self.log.write('receivers: {}'.format(receivers))
 
         costArray = self.table.getArray()
         self.quantArray = [[0 for j in range(self.table.getColumns())] for i in range(self.table.getRows())]
-        while not np.array_equal(np.sum(np.array(self.quantArray), axis=0), np.array(self.table.getColumns())):
+        while not np.array_equal(np.sum(np.array(self.quantArray), axis=0), np.array(self.receivers.getColumnsSum())):
             costArray = self.updateQuantArray(costArray)
-            self.log.pushArray(self.quantArray)
-            sleep(1)
 
     def calculateStep(self):
         pass
@@ -263,7 +261,9 @@ class MenuButtons(tk.Frame):
     def calculateBtnAction(self, event):
         self.log.clear()
         self.calculateInitValues()
+        self.log.write('Cost table:')
         self.printArray()
+        self.log.write('Actual transport:')
         self.printArray(self.quantArray)
 
 
