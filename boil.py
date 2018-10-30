@@ -7,6 +7,12 @@ import numpy as np
 import scipy.linalg as lg
 from time import sleep
 
+# Dummy value, real values used cannot be greater than this one
+MAXIMAL_COST = 10000000000
+
+# Must be LESS than MAXIMAL_COST - leave as is
+DUMMY_COST = MAXIMAL_COST - 1
+
 class Log(tk.Frame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -64,6 +70,11 @@ class Table(tk.Frame):
 
     def getArray(self):
         return [[self[(i, j)] for j in range(self.columns)] for i in range(self.rows)]
+
+    def setArray(self, array):
+        for i in range(self.rows):
+            for j in range(self.columns):
+                self[(i, j)] = array[i][j]
 
     def findMinValue(self):
         minV = self[(0, 0)]
@@ -221,11 +232,11 @@ class MenuButtons(tk.Frame):
             if diffSup[minI[0]] > diffRec[minI[1]]:
                 self.quantArray[minI[0]][minI[1]] += diffRec[minI[1]]
                 for i in range(len(supSum)):
-                    costArray[i][minI[1]] = 10000000000
+                    costArray[i][minI[1]] = MAXIMAL_COST
             else:
                 self.quantArray[minI[0]][minI[1]] += diffSup[minI[0]]
                 for i in range(len(recSum)):
-                    costArray[minI[0]][i] = 10000000000
+                    costArray[minI[0]][i] = MAXIMAL_COST
         return costArray
 
     def calculateInitValues(self):
@@ -235,12 +246,12 @@ class MenuButtons(tk.Frame):
         self.log.write('receivers sum: {}'.format(receiverSum))
         if supplierSum > receiverSum:
             self.log.write('suppliers > receivers - adding fictional receiver')
-            self.table.addColumns(1, 100000)
+            self.table.addColumns(1, DUMMY_COST)
             self.receivers.addColumns(1)
             self.receivers[(0, self.receivers.getColumns()-1)] = supplierSum - receiverSum
         elif receiverSum > supplierSum:
             self.log.write('receivers > suppliers - adding fictional supplier')
-            self.table.addRows(1, 100000)
+            self.table.addRows(1, DUMMY_COST)
             self.suppliers.addRows(1)
             self.suppliers[(self.suppliers.getRows()-1, 0)] = receiverSum - supplierSum
 
@@ -251,9 +262,47 @@ class MenuButtons(tk.Frame):
         self.log.write('receivers: {}'.format(receivers))
 
         costArray = self.table.getArray()
+
         self.quantArray = [[0 for j in range(self.table.getColumns())] for i in range(self.table.getRows())]
         while not np.array_equal(np.sum(np.array(self.quantArray), axis=0), np.array(self.receivers.getColumnsSum())):
             costArray = self.updateQuantArray(costArray)
+
+        costArray = self.table.getArray()
+        for i in range(len(costArray)):
+            for j in range(len(costArray[i])):
+                if costArray[i][j] == DUMMY_COST:
+                    costArray[i][j] = 0
+
+        self.table.setArray(costArray)
+
+
+    def makeGraph(self, array):
+        pass
+    def calculateDualVariables(self):
+        costArray = self.table.getArray()
+        quantArray = self.quantArray
+        rows = len(quantArray)
+        columns = len(quantArray[0])
+        A = []
+        B = []
+        for i in range(rows):
+            aRow = [0 for _ in range(rows)]
+            for j in range(columns):
+                if quantArray[i][j]:
+                    aRow[i] = 1
+                    aRow.append(1)
+                    B.append(quantArray[i][j])
+                else:
+                    aRow.append(0)
+            A.append(aRow)
+        for i, x in enumerate(self.table.getRows()):
+            if x:
+                tmp = [0 for _ in range(rows*columns)]
+                tmp[i] = 0
+                A.append(tmp)
+                break
+        A = np.array(A)
+        B = np.array(B)
 
     def calculateStep(self):
         pass
