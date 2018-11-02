@@ -3,6 +3,7 @@
 import tkinter as tk
 from tkinter import ttk
 from prettytable import PrettyTable
+from prettytable import ALL
 import numpy as np
 import scipy.linalg as lg
 from time import sleep
@@ -18,16 +19,36 @@ class Log(tk.Frame):
         super().__init__(*args, **kwargs)
         self.yScroll = tk.Scrollbar(self, orient=tk.VERTICAL)
         self.yScroll.grid(row=0, column=1, rowspan=5, sticky=tk.N+tk.S)
+        self.xScroll = tk.Scrollbar(self, orient=tk.HORIZONTAL)
+        self.xScroll.grid(row=6, column=0, columnspan=1, sticky=tk.W+tk.E)
         self.log = tk.StringVar()
-        self.logListBox = tk.Listbox(self, yscrollcommand=self.yScroll.set, listvariable=self.log, font=("Courier", 10))
+        self.logListBox = tk.Listbox(self,
+                                     yscrollcommand=self.yScroll.set,
+                                     xscrollcommand=self.xScroll.set,
+                                     listvariable=self.log,
+                                     font=("Courier", 10))
         self.logListBox.grid(row=0, column=0, rowspan=5, sticky=tk.N+tk.S+tk.W+tk.E)
         self.yScroll['command'] = self.logListBox.yview
+        self.xScroll['command'] = self.logListBox.xview
         self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=0)
         self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=0)
         self.tasks = []
 
-    def write(self, text, index=tk.END):
-        self.logListBox.insert(index, text)
+    def print(self, text, index=tk.END):
+        self.logListBox.insert(index, str(text))
+        self.logListBox.yview(tk.END)
+        self.update_idletasks()
+
+    def printArray(self, array, index=tk.END):
+        x = PrettyTable()
+        x.header = False
+        x.hrules = ALL
+        for row in array:
+            x.add_row(row)
+        for line in str(x).split('\n'):
+            self.logListBox.insert(index, line)
         self.logListBox.yview(tk.END)
         self.update_idletasks()
 
@@ -45,7 +66,7 @@ class Log(tk.Frame):
 
 
 class Table(tk.Frame):
-    def __init__(self, *args, rows=4, columns=4, stretch=False, **kwargs):
+    def __init__(self, *args, rows=3, columns=3, stretch=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.rows = rows
         self.columns = columns
@@ -188,8 +209,9 @@ class MenuButtons(tk.Frame):
         self.table = table
         self.suppliers = suppliers
         self.receivers = receivers
-        self.log = log
         self.quantArray = None
+        self.log = log
+
 
     def updateTableBtnAction(self, event):
         rowNumber = self.supplierNumber.get()
@@ -198,15 +220,14 @@ class MenuButtons(tk.Frame):
         self.suppliers.updateTableSize(rowNumber, 1)
         self.receivers.updateTableSize(1, columnNumber)
 
-    def printArray(self, array=None):
-        x = PrettyTable()
+    def wrapArray(self, array):
         if not array:
-            array = self.table.getArray()
-        x.field_names = [' '] + ['O{}'.format(i) for i in range(self.table.getColumns())]
+            return array
+        fieldNames = [' '] + ['O{}'.format(i) for i in range(len(array[0]))]
+        newArr = [fieldNames]
         for i, row in enumerate(array):
-            x.add_row(['D{}'.format(i)] + row)
-        for line in str(x).split('\n'):
-            self.log.write('{}'.format(line))
+            newArr.append(['D{}'.format(i)] + row)
+        return newArr
 
     def getMinValueArray(self, array=None):
         if not array:
@@ -240,17 +261,18 @@ class MenuButtons(tk.Frame):
         return costArray
 
     def calculateInitValues(self):
+        self.quantArray = None
         supplierSum = self.suppliers.getCellsSum()
         receiverSum = self.receivers.getCellsSum()
-        self.log.write('suppliers sum: {}'.format(supplierSum))
-        self.log.write('receivers sum: {}'.format(receiverSum))
+        self.log.print('suppliers sum: {}'.format(supplierSum))
+        self.log.print('receivers sum: {}'.format(receiverSum))
         if supplierSum > receiverSum:
-            self.log.write('suppliers > receivers - adding fictional receiver')
+            self.log.print('suppliers > receivers - adding fictional receiver')
             self.table.addColumns(1, DUMMY_COST)
             self.receivers.addColumns(1)
             self.receivers[(0, self.receivers.getColumns()-1)] = supplierSum - receiverSum
         elif receiverSum > supplierSum:
-            self.log.write('receivers > suppliers - adding fictional supplier')
+            self.log.print('receivers > suppliers - adding fictional supplier')
             self.table.addRows(1, DUMMY_COST)
             self.suppliers.addRows(1)
             self.suppliers[(self.suppliers.getRows()-1, 0)] = receiverSum - supplierSum
@@ -258,8 +280,8 @@ class MenuButtons(tk.Frame):
         suppliers = self.suppliers.getRowsSum()
         receivers = self.receivers.getColumnsSum()
 
-        self.log.write('suppliers: {}'.format(suppliers))
-        self.log.write('receivers: {}'.format(receivers))
+        self.log.print('suppliers: {}'.format(suppliers))
+        self.log.print('receivers: {}'.format(receivers))
 
         costArray = self.table.getArray()
 
@@ -275,9 +297,9 @@ class MenuButtons(tk.Frame):
 
         self.table.setArray(costArray)
 
-
     def makeGraph(self, array):
         pass
+
     def calculateDualVariables(self):
         costArray = self.table.getArray()
         quantArray = self.quantArray
@@ -286,23 +308,26 @@ class MenuButtons(tk.Frame):
         A = []
         B = []
         for i in range(rows):
-            aRow = [0 for _ in range(rows)]
+            aRow = [0 for _ in range(rows+columns)]
             for j in range(columns):
                 if quantArray[i][j]:
                     aRow[i] = 1
-                    aRow.append(1)
-                    B.append(quantArray[i][j])
+                    aRow[rows+j] = 1
+                    B.append(-costArray[i][j])
+                    A.append(aRow)
+                    aRow = [0 for _ in range(rows+columns)]
+        for i, x in enumerate(quantArray):
+            if any(x):
+                if len(B) < rows+columns:
+                    tmp = [0 for _ in range(rows+columns)]
+                    tmp[i] = 1
+                    A.append(tmp)
+                    B.append(0)
                 else:
-                    aRow.append(0)
-            A.append(aRow)
-        for i, x in enumerate(self.table.getRows()):
-            if x:
-                tmp = [0 for _ in range(rows*columns)]
-                tmp[i] = 0
-                A.append(tmp)
-                break
+                    break
         A = np.array(A)
         B = np.array(B)
+        return lg.solve(A, B)
 
     def calculateStep(self):
         pass
@@ -310,19 +335,22 @@ class MenuButtons(tk.Frame):
     def calculateBtnAction(self, event):
         self.log.clear()
         self.calculateInitValues()
-        self.log.write('Cost table:')
-        self.printArray()
-        self.log.write('Actual transport:')
-        self.printArray(self.quantArray)
+        self.log.print('Cost table:')
+        self.log.printArray(self.wrapArray(self.table.getArray()))
+        self.log.print('Actual transport:')
+        self.log.printArray(self.wrapArray(self.quantArray))
+        res = self.calculateDualVariables()
+        self.log.print('Dual variables:')
+        self.log.printArray([res])
 
 
 if __name__ == '__main__':
     root = tk.Tk()
     log = Log(root)
-    initTable = Table(root, stretch=True)
     initLabel = tk.Label(root, text='Dos\\Odb', height=1)
-    suppliers = Table(root, rows=4, columns=1, stretch=True)
-    receivers = Table(root, rows=1, columns=4, stretch=True)
+    suppliers = Table(root, rows=3, columns=1, stretch=True)
+    receivers = Table(root, rows=1, columns=3, stretch=True)
+    initTable = Table(root, stretch=True)
     buttons = MenuButtons(root, table=initTable, suppliers=suppliers, receivers=receivers, log=log)
     initLabel.grid(row=0, column=0, sticky=tk.N+tk.W+tk.S+tk.E)
     suppliers.grid(row=1, column=0, sticky=tk.N+tk.W+tk.S+tk.E)
@@ -334,5 +362,5 @@ if __name__ == '__main__':
     root.grid_columnconfigure(1, weight=1)
 
     root.grid_rowconfigure(2, weight=1)
-    root.grid_columnconfigure(2, weight=1)
+    root.grid_columnconfigure(2, weight=0)
     root.mainloop()
