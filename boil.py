@@ -206,7 +206,7 @@ class MenuButtons(tk.Frame):
         self.columnconfigure(1, weight=1)
         self.supplierNumber.set(suppliers.getRows())
         self.receiverNumber.set(receivers.getColumns())
-        self.table = table
+        self.costTable = table
         self.suppliers = suppliers
         self.receivers = receivers
         self.quantArray = None
@@ -216,7 +216,7 @@ class MenuButtons(tk.Frame):
     def updateTableBtnAction(self, event):
         rowNumber = self.supplierNumber.get()
         columnNumber = self.receiverNumber.get()
-        self.table.updateTableSize(rowNumber, columnNumber)
+        self.costTable.updateTableSize(rowNumber, columnNumber)
         self.suppliers.updateTableSize(rowNumber, 1)
         self.receivers.updateTableSize(1, columnNumber)
 
@@ -231,7 +231,7 @@ class MenuButtons(tk.Frame):
 
     def getMinValueArray(self, array=None):
         if not array:
-            array = self.table.getArray()
+            array = self.costTable.getArray()
         minV = array[0][0]
         minI = (0, 0)
         for i in range(len(array)):
@@ -268,12 +268,12 @@ class MenuButtons(tk.Frame):
         self.log.print('receivers sum: {}'.format(receiverSum))
         if supplierSum > receiverSum:
             self.log.print('suppliers > receivers - adding fictional receiver')
-            self.table.addColumns(1, DUMMY_COST)
+            self.costTable.addColumns(1, DUMMY_COST)
             self.receivers.addColumns(1)
             self.receivers[(0, self.receivers.getColumns()-1)] = supplierSum - receiverSum
         elif receiverSum > supplierSum:
             self.log.print('receivers > suppliers - adding fictional supplier')
-            self.table.addRows(1, DUMMY_COST)
+            self.costTable.addRows(1, DUMMY_COST)
             self.suppliers.addRows(1)
             self.suppliers[(self.suppliers.getRows()-1, 0)] = receiverSum - supplierSum
 
@@ -283,25 +283,22 @@ class MenuButtons(tk.Frame):
         self.log.print('suppliers: {}'.format(suppliers))
         self.log.print('receivers: {}'.format(receivers))
 
-        costArray = self.table.getArray()
+        costArray = self.costTable.getArray()
 
-        self.quantArray = [[0 for j in range(self.table.getColumns())] for i in range(self.table.getRows())]
+        self.quantArray = [[0 for j in range(self.costTable.getColumns())] for i in range(self.costTable.getRows())]
         while not np.array_equal(np.sum(np.array(self.quantArray), axis=0), np.array(self.receivers.getColumnsSum())):
             costArray = self.updateQuantArray(costArray)
 
-        costArray = self.table.getArray()
+        costArray = self.costTable.getArray()
         for i in range(len(costArray)):
             for j in range(len(costArray[i])):
                 if costArray[i][j] == DUMMY_COST:
                     costArray[i][j] = 0
+        self.costTable.setArray(costArray)
 
-        self.table.setArray(costArray)
-
-    def makeGraph(self, array):
-        pass
 
     def calculateDualVariables(self):
-        costArray = self.table.getArray()
+        costArray = self.costTable.getArray()
         quantArray = self.quantArray
         rows = len(quantArray)
         columns = len(quantArray[0])
@@ -329,19 +326,99 @@ class MenuButtons(tk.Frame):
         B = np.array(B)
         return lg.solve(A, B)
 
-    def calculateStep(self):
+
+    def calculateStepMatrix(self, dualVariables):
+        matrix = []
+        quantArray = np.array(self.quantArray)
+        costArray = np.array(self.costTable.getArray())
+        rows = self.costTable.getRows()
+        columns = self.costTable.getColumns()
+        for i in range(rows):
+            matrix.append([])
+            for j in range(columns):
+                if quantArray[i, j]:
+                    matrix[i].append('x')
+                else:
+                    matrix[i].append(dualVariables[i]+dualVariables[rows+j]+costArray[i, j])
+        return matrix
+
+    def searchNextStep(self, start, matrix):
+        rows = len(matrix)
+        columns = len(matrix[0])
+        rowNexts = []
+        odd = False
+        i = start[0]
+        j = start[1]
+        if matrix[i][j] == 'x':
+            odd = True
+        for k in range(rows):
+            if k == j:
+                continue
+            if not odd:
+                if matrix[i][k] == 'x':
+                    matrix[i][k] = 'r'
+                    rowNexts.append((i, k))
+            else:
+                if matrix[i][k] not in {'x', 'r'}:
+                    matrix[i][k] = 'r'
+                    rowNexts.append((i, k))
+        if rowNexts:
+            return rowNexts
+        columnNexts = []
+        for k in range(columns):
+            if k == i:
+                continue
+            if not odd:
+                if matrix[k][j] == 'x':
+                    matrix[k][j] = 'r'
+                    columnNexts.append((k, j))
+            else:
+                if matrix[k][j] not in {'x', 'r'}:
+                    matrix[k][j] = 'r'
+                    columnNexts.append((k, j))
+        if columnNexts:
+            return columnNexts
+        return None
+
+    def updateGraph(self, graph, nextSteps):
         pass
+
+    def makeGraph(self, matrix):
+        graph = []
+        rows = len(matrix)
+        columns = len(matrix[0])
+        for i in range(rows):
+            for j in range(columns):
+                if matrix[i][j] != 'x':
+                    minimal = matrix[i][j]
+                    minIndeces = (i, j)
+                    break
+        for i in range(rows):
+            for j in range(columns):
+                if matrix[i][j] < minimal:
+                    minimal = matrix[i][j]
+                    minIndeces = (i, j)
+        start = minIndeces
+        stop = minIndeces
+        nextSteps = self.searchNextStep(start, matrix)
+        if nextSteps:
+            self.updateGraph(graph, nextSteps)
+
 
     def calculateBtnAction(self, event):
         self.log.clear()
         self.calculateInitValues()
         self.log.print('Cost table:')
-        self.log.printArray(self.wrapArray(self.table.getArray()))
+        self.log.printArray(self.wrapArray(self.costTable.getArray()))
         self.log.print('Actual transport:')
         self.log.printArray(self.wrapArray(self.quantArray))
         res = self.calculateDualVariables()
         self.log.print('Dual variables:')
         self.log.printArray([res])
+        matrix = self.calculateStepMatrix(res)
+        self.log.print('Matrix:')
+        self.log.printArray(matrix)
+
 
 
 if __name__ == '__main__':
