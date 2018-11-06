@@ -212,7 +212,6 @@ class MenuButtons(tk.Frame):
         self.quantArray = None
         self.log = log
 
-
     def updateTableBtnAction(self, event):
         rowNumber = self.supplierNumber.get()
         columnNumber = self.receiverNumber.get()
@@ -296,7 +295,6 @@ class MenuButtons(tk.Frame):
                     costArray[i][j] = 0
         self.costTable.setArray(costArray)
 
-
     def calculateDualVariables(self):
         costArray = self.costTable.getArray()
         quantArray = self.quantArray
@@ -326,7 +324,6 @@ class MenuButtons(tk.Frame):
         B = np.array(B)
         return lg.solve(A, B)
 
-
     def calculateStepMatrix(self, dualVariables):
         matrix = []
         quantArray = np.array(self.quantArray)
@@ -342,49 +339,43 @@ class MenuButtons(tk.Frame):
                     matrix[i].append(dualVariables[i]+dualVariables[rows+j]+costArray[i, j])
         return matrix
 
-    def searchNextStep(self, start, matrix):
+    def searchNextStep(self, path, matrix):
         rows = len(matrix)
         columns = len(matrix[0])
         rowNexts = []
         odd = False
-        i = start[0]
-        j = start[1]
+        results = []
+        i = path[-1][0]
+        j = path[-1][1]
         if matrix[i][j] == 'x':
             odd = True
         for k in range(rows):
             if k == j:
                 continue
-            if not odd:
-                if matrix[i][k] == 'x':
-                    matrix[i][k] = 'r'
-                    rowNexts.append((i, k))
-            else:
-                if matrix[i][k] not in {'x', 'r'}:
-                    matrix[i][k] = 'r'
-                    rowNexts.append((i, k))
-        if rowNexts:
-            return rowNexts
+            if not odd and matrix[i][k] == 'x':
+                rowNexts.append((i, k))
+            elif matrix[i][k] != 'x':
+                rowNexts.append((i, k))
+        for row in rowNexts:
+            if row not in path:
+                results.append(row)
+
         columnNexts = []
         for k in range(columns):
             if k == i:
                 continue
-            if not odd:
-                if matrix[k][j] == 'x':
-                    matrix[k][j] = 'r'
-                    columnNexts.append((k, j))
-            else:
-                if matrix[k][j] not in {'x', 'r'}:
-                    matrix[k][j] = 'r'
-                    columnNexts.append((k, j))
-        if columnNexts:
-            return columnNexts
-        return None
+            if not odd and matrix[k][j] == 'x':
+                columnNexts.append((k, j))
+            elif matrix[k][j] != 'x':
+                columnNexts.append((k, j))
 
-    def updateGraph(self, graph, nextSteps):
-        pass
+        for col in columnNexts:
+            if col not in path:
+                results.append(col)
 
-    def makeGraph(self, matrix):
-        graph = []
+        return results
+
+    def generatePaths(self, matrix):
         rows = len(matrix)
         columns = len(matrix[0])
         for i in range(rows):
@@ -399,10 +390,24 @@ class MenuButtons(tk.Frame):
                     minimal = matrix[i][j]
                     minIndeces = (i, j)
         start = minIndeces
-        stop = minIndeces
-        nextSteps = self.searchNextStep(start, matrix)
-        if nextSteps:
-            self.updateGraph(graph, nextSteps)
+        path = (start,)
+        nextSteps = self.searchNextStep(path, matrix)
+        oldPaths = []
+        for step in nextSteps:
+            oldPaths.append(path + (step,))
+        finished = False
+        while not finished:
+            newPaths = []
+            finished = True
+            for path in oldPaths:
+                if path[-1] != start:
+                    nextSteps = self.searchNextStep(path, matrix)
+                    for step in nextSteps:
+                        if step != start:
+                            finished = False
+                        newPaths.append(path + (step,))
+            oldPaths = newPaths
+        return oldPaths
 
 
     def calculateBtnAction(self, event):
@@ -418,8 +423,9 @@ class MenuButtons(tk.Frame):
         matrix = self.calculateStepMatrix(res)
         self.log.print('Matrix:')
         self.log.printArray(matrix)
-
-
+        paths = self.generatePaths(matrix)
+        for path in paths:
+            self.log.printArray(path)
 
 if __name__ == '__main__':
     root = tk.Tk()
