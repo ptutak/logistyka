@@ -340,39 +340,39 @@ class MenuButtons(tk.Frame):
         return matrix
 
     def searchNextStep(self, path, matrix):
+
+        # TODO: Policzyć w którym kierunku mam się poruszać - poruszanie na zmianę
+
         rows = len(matrix)
         columns = len(matrix[0])
         rowNexts = []
-        odd = False
+        odd = (len(path)+1) % 2
         results = []
         i = path[-1][0]
         j = path[-1][1]
-        if matrix[i][j] == 'x':
-            odd = True
         for k in range(rows):
-            if k == j:
+            if k == i:
                 continue
-            if not odd and matrix[i][k] == 'x':
-                rowNexts.append((i, k))
-            elif matrix[i][k] != 'x':
-                rowNexts.append((i, k))
+            if not odd and matrix[k][j] == 'x':
+                rowNexts.append((k, j))
+            else:
+                rowNexts.append((k, j))
         for row in rowNexts:
             if row not in path:
                 results.append(row)
 
         columnNexts = []
         for k in range(columns):
-            if k == i:
+            if k == j:
                 continue
-            if not odd and matrix[k][j] == 'x':
-                columnNexts.append((k, j))
-            elif matrix[k][j] != 'x':
-                columnNexts.append((k, j))
+            if not odd and matrix[i][k] == 'x':
+                columnNexts.append((i, k))
+            else:
+                columnNexts.append((i, k))
 
         for col in columnNexts:
             if col not in path:
                 results.append(col)
-
         return results
 
     def generatePaths(self, matrix):
@@ -386,29 +386,28 @@ class MenuButtons(tk.Frame):
                     break
         for i in range(rows):
             for j in range(columns):
-                if matrix[i][j] < minimal:
+                if matrix[i][j] != 'x' and matrix[i][j] < minimal:
                     minimal = matrix[i][j]
                     minIndeces = (i, j)
         start = minIndeces
+        print('start',start)
         path = (start,)
         nextSteps = self.searchNextStep(path, matrix)
         oldPaths = []
         for step in nextSteps:
             oldPaths.append(path + (step,))
-        finished = False
-        while not finished:
+        finishedPaths = []
+        while any(oldPaths):
             newPaths = []
-            finished = True
             for path in oldPaths:
                 if path[-1] != start:
                     nextSteps = self.searchNextStep(path, matrix)
                     for step in nextSteps:
-                        if step != start:
-                            finished = False
                         newPaths.append(path + (step,))
+                else:
+                    finishedPaths.append(path)
             oldPaths = newPaths
-        return oldPaths
-
+        return finishedPaths
 
     def calculateBtnAction(self, event):
         self.log.clear()
@@ -423,7 +422,9 @@ class MenuButtons(tk.Frame):
         matrix = self.calculateStepMatrix(res)
         self.log.print('Matrix:')
         self.log.printArray(matrix)
+        self.log.print('Paths:')
         paths = self.generatePaths(matrix)
+        print(paths)
         for path in paths:
             self.log.printArray(path)
 
