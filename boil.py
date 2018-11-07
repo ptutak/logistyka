@@ -345,34 +345,41 @@ class MenuButtons(tk.Frame):
 
         rows = len(matrix)
         columns = len(matrix[0])
-        rowNexts = []
-        odd = (len(path)+1) % 2
+        onlyX = bool(len(path) % 2)
         results = []
         i = path[-1][0]
         j = path[-1][1]
-        for k in range(rows):
-            if k == i:
-                continue
-            if not odd and matrix[k][j] == 'x':
-                rowNexts.append((k, j))
-            else:
-                rowNexts.append((k, j))
-        for row in rowNexts:
-            if row not in path:
-                results.append(row)
+        direction = 'rows'
+        if len(path) > 1:
+            if path[-2][0] != path[-1][0]:
+                direction = 'columns'
+        if direction == 'rows':
+            rowNexts = []
+            for k in range(rows):
+                if k == i:
+                    continue
+                if onlyX and matrix[k][j] == 'x':
+                    rowNexts.append((k, j))
+                else:
+                    rowNexts.append((k, j))
+            for row in rowNexts:
+                if row not in path or row == path[0]:
+                    results.append(row)
+        if len(path) == 1:
+            direction = 'columns'
+        if direction == 'columns':
+            columnNexts = []
+            for k in range(columns):
+                if k == j:
+                    continue
+                if not onlyX and matrix[i][k] == 'x':
+                    columnNexts.append((i, k))
+                else:
+                    columnNexts.append((i, k))
 
-        columnNexts = []
-        for k in range(columns):
-            if k == j:
-                continue
-            if not odd and matrix[i][k] == 'x':
-                columnNexts.append((i, k))
-            else:
-                columnNexts.append((i, k))
-
-        for col in columnNexts:
-            if col not in path:
-                results.append(col)
+            for col in columnNexts:
+                if col not in path or col == path[0]:
+                    results.append(col)
         return results
 
     def generatePaths(self, matrix):
@@ -390,7 +397,6 @@ class MenuButtons(tk.Frame):
                     minimal = matrix[i][j]
                     minIndeces = (i, j)
         start = minIndeces
-        print('start',start)
         path = (start,)
         nextSteps = self.searchNextStep(path, matrix)
         oldPaths = []
@@ -407,7 +413,36 @@ class MenuButtons(tk.Frame):
                 else:
                     finishedPaths.append(path)
             oldPaths = newPaths
-        return finishedPaths
+        legitPaths = []
+        for path in finishedPaths:
+            pathSum = 0.0
+            for elem in path[:-1]:
+                e = matrix[elem[0]][elem[1]]
+                if e != 'x':
+                    pathSum += e
+            if pathSum < 0:
+                legitPaths.append(path)
+        return legitPaths
+
+    def calculateNewQuantArray(self, path):
+        quantArray = self.quantArray
+        minQuant = quantArray[path[0][0]][path[0][1]]
+        for elem in path:
+            elemQuant = quantArray[elem[0]][elem[1]]
+            if elemQuant > 0:
+                minQuant = elemQuant
+                break
+        for elem in path:
+            elemQuant = quantArray[elem[0]][elem[1]]
+            if elemQuant < minQuant and elemQuant > 0:
+                minQuant = elemQuant
+
+        for i, elem in enumerate(path[:-1]):
+            if bool(i % 2):
+                quantArray[elem[0]][elem[1]] -= minQuant
+            else:
+                quantArray[elem[0]][elem[1]] += minQuant
+
 
     def calculateBtnAction(self, event):
         self.log.clear()
@@ -416,17 +451,26 @@ class MenuButtons(tk.Frame):
         self.log.printArray(self.wrapArray(self.costTable.getArray()))
         self.log.print('Actual transport:')
         self.log.printArray(self.wrapArray(self.quantArray))
-        res = self.calculateDualVariables()
-        self.log.print('Dual variables:')
-        self.log.printArray([res])
-        matrix = self.calculateStepMatrix(res)
-        self.log.print('Matrix:')
-        self.log.printArray(matrix)
-        self.log.print('Paths:')
-        paths = self.generatePaths(matrix)
-        print(paths)
-        for path in paths:
-            self.log.printArray(path)
+        while True:
+            res = self.calculateDualVariables()
+            self.log.print('Dual variables:')
+            self.log.printArray([res])
+            matrix = self.calculateStepMatrix(res)
+            self.log.print('Matrix:')
+            self.log.printArray(matrix)
+            self.log.print('Paths:')
+            paths = self.generatePaths(matrix)
+            for path in paths:
+                self.log.printArray(path)
+            if any(paths):
+                self.calculateNewQuantArray(paths[0])
+                self.log.print('New transport:')
+                self.log.printArray(self.wrapArray(self.quantArray))
+            else:
+                self.log.print('Finished')
+                self.log.print('Final result:')
+                self.log.printArray(self.wrapArray(self.quantArray))
+                break
 
 if __name__ == '__main__':
     root = tk.Tk()
